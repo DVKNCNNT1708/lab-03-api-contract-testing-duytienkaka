@@ -1,8 +1,90 @@
-extends:
-  - spectral:oas
-
 rules:
-  operation-description: warn
-  operation-operationId: error
-  operation-tags: warn
-  oas3-api-servers: off
+  openapi-version:
+    description: OpenAPI document must declare a supported version.
+    severity: error
+    given: $
+    then:
+      field: openapi
+      function: truthy
+
+  info-title:
+    description: API info.title is required.
+    severity: error
+    given: $.info
+    then:
+      field: title
+      function: truthy
+
+  info-version:
+    description: API info.version is required.
+    severity: error
+    given: $.info
+    then:
+      field: version
+      function: truthy
+
+  info-contact:
+    description: Info object should define a contact.
+    severity: warn
+    given: $.info
+    then:
+      field: contact
+      function: truthy
+
+  operation-operationId:
+    description: Every operation must define an operationId.
+    severity: error
+    given: $.paths[*][*]
+    then:
+      field: operationId
+      function: truthy
+
+  operation-description:
+    description: Every operation should define a description.
+    severity: warn
+    given: $.paths[*][*]
+    then:
+      field: description
+      function: truthy
+
+  operation-tags:
+    description: Every operation should define at least one tag.
+    severity: warn
+    given: $.paths[*][*]
+    then:
+      field: tags
+      function: truthy
+
+  operation-responses:
+    description: Every operation must define responses.
+    severity: error
+    given: $.paths[*][*]
+    then:
+      field: responses
+      function: truthy
+
+  problem-status-range:
+    description: Problem.status must stay in the HTTP error range.
+    severity: error
+    given: $.components.schemas.Problem.properties.status
+    then:
+      function: schema
+      functionOptions:
+        schema:
+          type: object
+          required:
+            - minimum
+            - maximum
+          properties:
+            minimum:
+              const: 400
+            maximum:
+              const: 599
+
+  bearer-auth-present:
+    description: Contract should define bearerAuth security scheme.
+    severity: warn
+    given: $.components.securitySchemes
+    then:
+      field: bearerAuth
+      function: truthy

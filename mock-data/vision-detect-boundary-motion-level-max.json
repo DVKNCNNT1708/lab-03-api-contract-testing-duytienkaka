@@ -1,0 +1,11 @@
+{
+  "requestId": "REQ-CAM-20260512-0006",
+  "cameraId": "CAM-ER-02",
+  "capturedAt": "2026-05-12T08:03:00Z",
+  "traceId": "TRACE-20260512-0006",
+  "motionLevel": 1,
+  "imageSource": {
+    "sourceType": "IMAGE_URL",
+    "url": "https://media.hospital.local/camera/CAM-ER-02/frame-1006.jpg"
+  }
+}

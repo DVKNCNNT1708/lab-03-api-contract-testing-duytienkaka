@@ -1,0 +1,917 @@
+{
+  "info": {
+    "_postman_id": "fit4110-lab03-team-vision",
+    "name": "FIT4110 Lab03 - Team Vision Contract Tests",
+    "description": "Postman collection for AI Vision provider-side contract tests, Camera consumer smoke tests, Newman evidence, and local-only non-functional checks.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "const prefix = pm.environment.get('tracePrefix') || 'team-vision';",
+          "const timestamp = Date.now();",
+          "pm.variables.set('traceId', `${prefix}-trace-${timestamp}`);",
+          "pm.variables.set('requestId', `REQ-CAM-${timestamp}`);",
+          "pm.request.headers.upsert({ key: 'X-Correlation-Id', value: pm.environment.get('correlationId') || `CORR-${timestamp}` });"
+        ]
+      }
+    }
+  ],
+  "variable": [],
+  "item": [
+    {
+      "name": "00_Health",
+      "item": [
+        {
+          "name": "GET /health - service is alive",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/health",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "health"
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('Response has health payload', function () {",
+                  "  const json = pm.response.json();",
+                  "  pm.expect(json).to.have.property('status', 'ok');",
+                  "  pm.expect(json).to.have.property('service', 'ai-vision');",
+                  "  pm.expect(json).to.have.property('time');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "01_Functional",
+      "item": [
+        {
+          "name": "POST /vision/detect - accepts IMAGE_URL request",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/vision/detect",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "vision",
+                "detect"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"requestId\": \"REQ-CAM-20260512-0001\",\n  \"cameraId\": \"CAM-ER-01\",\n  \"capturedAt\": \"2026-05-12T08:00:00Z\",\n  \"traceId\": \"TRACE-20260512-0001\",\n  \"zoneId\": \"ER-ENTRANCE\",\n  \"motionLevel\": 0.92,\n  \"notes\": \"Motion detected near emergency entrance\",\n  \"imageSource\": {\n    \"sourceType\": \"IMAGE_URL\",\n    \"url\": \"https://media.hospital.local/camera/CAM-ER-01/frame-1001.jpg\"\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 202', function () { pm.response.to.have.status(202); });",
+                  "pm.test('Response has detection submission fields', function () {",
+                  "  const json = pm.response.json();",
+                  "  pm.expect(json).to.have.property('detectionId');",
+                  "  pm.expect(json).to.have.property('requestId', 'REQ-CAM-20260512-0001');",
+                  "  pm.expect(json).to.have.property('status', 'PROCESSING');",
+                  "  pm.environment.set('detectionId', json.detectionId);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /vision/detect - accepts OBJECT_STORAGE_REF request",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/vision/detect",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "vision",
+                "detect"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"requestId\": \"REQ-CAM-20260512-0002\",\n  \"cameraId\": \"CAM-ICU-02\",\n  \"capturedAt\": \"2026-05-12T08:02:10Z\",\n  \"traceId\": \"TRACE-20260512-0002\",\n  \"zoneId\": \"ICU-HALL\",\n  \"motionLevel\": 0.71,\n  \"notes\": \"Re-check frame due to repeated motion\",\n  \"imageSource\": {\n    \"sourceType\": \"OBJECT_STORAGE_REF\",\n    \"bucket\": \"camera-stream-cache\",\n    \"objectKey\": \"ICU-02/2026/05/12/frame-1002.jpg\",\n    \"expiresAt\": \"2026-05-12T08:12:10Z\"\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Object storage request is accepted', function () { pm.response.to.have.status(202); });",
+                  "pm.test('Response includes request and trace identifiers', function () {",
+                  "  const json = pm.response.json();",
+                  "  pm.expect(json).to.have.property('requestId');",
+                  "  pm.expect(json).to.have.property('traceId');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /vision/detections/{detectionId} - returns completed result",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/vision/detections/{{detectionId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "vision",
+                "detections",
+                "{{detectionId}}"
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Detection lookup returns 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('Detection result has normalized confidence and object data', function () {",
+                  "  const json = pm.response.json();",
+                  "  pm.expect(json).to.have.property('detectionId');",
+                  "  pm.expect(json).to.have.property('status', 'COMPLETED');",
+                  "  pm.expect(json.confidence).to.be.within(0, 1);",
+                  "  pm.expect(json.objects).to.be.an('array');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /vision/models/info - returns active model info",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/vision/models/info",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "vision",
+                "models",
+                "info"
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Model info returns 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('Model info includes supported input types', function () {",
+                  "  const json = pm.response.json();",
+                  "  pm.expect(json).to.have.property('modelVersion');",
+                  "  pm.expect(json.supportedImageSourceTypes).to.include('IMAGE_URL');",
+                  "  pm.expect(json.maxImageSizeBytes).to.be.above(1024);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "02_Auth",
+      "item": [
+        {
+          "name": "GET /vision/models/info - valid token is accepted",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/vision/models/info",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "vision",
+                "models",
+                "info"
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Valid token request returns success', function () { pm.expect(pm.response.code).to.eql(200); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /vision/detect - missing token is rejected on real service",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/vision/detect",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "vision",
+                "detect"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"requestId\": \"REQ-CAM-20260512-0003\",\n  \"cameraId\": \"CAM-ER-01\",\n  \"capturedAt\": \"2026-05-12T08:00:00Z\",\n  \"traceId\": \"TRACE-20260512-0003\",\n  \"imageSource\": {\n    \"sourceType\": \"IMAGE_URL\",\n    \"url\": \"https://media.hospital.local/camera/CAM-ER-01/frame-1003.jpg\"\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const env = pm.environment.get('env') || 'mock';",
+                  "if (env === 'mock') {",
+                  "  pm.test('Skipped on mock: Prism does not enforce real auth without a service implementation', function () { pm.expect(true).to.eql(true); });",
+                  "} else {",
+                  "  pm.test('Missing token returns 401 or 403', function () { pm.expect([401, 403]).to.include(pm.response.code); });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /vision/detections/{detectionId} - invalid token is rejected on real service",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer invalid-token"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/vision/detections/{{detectionId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "vision",
+                "detections",
+                "{{detectionId}}"
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const env = pm.environment.get('env') || 'mock';",
+                  "if (env === 'mock') {",
+                  "  pm.test('Skipped on mock: invalid token requires real auth middleware', function () { pm.expect(true).to.eql(true); });",
+                  "} else {",
+                  "  pm.test('Invalid token returns 401 or 403', function () { pm.expect([401, 403]).to.include(pm.response.code); });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "03_Negative",
+      "item": [
+        {
+          "name": "POST /vision/detect - missing imageSource returns validation error",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              },
+              {
+                "key": "Prefer",
+                "value": "code=400"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/vision/detect",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "vision",
+                "detect"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"requestId\": \"REQ-CAM-20260512-0004\",\n  \"cameraId\": \"CAM-ER-01\",\n  \"capturedAt\": \"2026-05-12T08:00:00Z\",\n  \"traceId\": \"TRACE-20260512-0004\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Invalid payload returns client error', function () { pm.expect([400, 422]).to.include(pm.response.code); });",
+                  "pm.test('Problem response contains status and title', function () {",
+                  "  const json = pm.response.json();",
+                  "  pm.expect(json).to.have.property('title');",
+                  "  pm.expect(json).to.have.property('status');",
+                  "  pm.expect(json.status).to.be.within(400, 599);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /vision/detect - invalid cameraId pattern returns validation error",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              },
+              {
+                "key": "Prefer",
+                "value": "code=400"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/vision/detect",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "vision",
+                "detect"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"requestId\": \"REQ-CAM-20260512-0005\",\n  \"cameraId\": \"ER-01\",\n  \"capturedAt\": \"2026-05-12T08:00:00Z\",\n  \"traceId\": \"TRACE-20260512-0005\",\n  \"imageSource\": {\n    \"sourceType\": \"IMAGE_URL\",\n    \"url\": \"https://media.hospital.local/camera/CAM-ER-01/frame-1005.jpg\"\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Invalid cameraId returns 400 or 422', function () { pm.expect([400, 422]).to.include(pm.response.code); });",
+                  "pm.test('Problem response includes detail', function () {",
+                  "  const json = pm.response.json();",
+                  "  pm.expect(json).to.have.property('detail');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /vision/detections/{detectionId} - unknown detection returns 404",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              },
+              {
+                "key": "Prefer",
+                "value": "code=404"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/vision/detections/DET-20260512-9999",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "vision",
+                "detections",
+                "DET-20260512-9999"
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Unknown detection returns 404', function () { pm.response.to.have.status(404); });",
+                  "pm.test('Problem response preserves not-found status', function () {",
+                  "  const json = pm.response.json();",
+                  "  pm.expect(json.status).to.eql(404);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "04_Boundary_Reliability",
+      "item": [
+        {
+          "name": "POST /vision/detect - motionLevel max boundary is accepted",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/vision/detect",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "vision",
+                "detect"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"requestId\": \"REQ-CAM-20260512-0006\",\n  \"cameraId\": \"CAM-ER-02\",\n  \"capturedAt\": \"2026-05-12T08:03:00Z\",\n  \"traceId\": \"TRACE-20260512-0006\",\n  \"motionLevel\": 1,\n  \"imageSource\": {\n    \"sourceType\": \"IMAGE_URL\",\n    \"url\": \"https://media.hospital.local/camera/CAM-ER-02/frame-1006.jpg\"\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Boundary max motionLevel returns success', function () { pm.expect(pm.response.code).to.eql(202); });",
+                  "pm.test('Response confirms request was accepted', function () {",
+                  "  const json = pm.response.json();",
+                  "  pm.expect(json).to.have.property('status', 'PROCESSING');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /vision/detect - motionLevel above max is rejected",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              },
+              {
+                "key": "Prefer",
+                "value": "code=400"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/vision/detect",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "vision",
+                "detect"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"requestId\": \"REQ-CAM-20260512-0007\",\n  \"cameraId\": \"CAM-ER-03\",\n  \"capturedAt\": \"2026-05-12T08:04:00Z\",\n  \"traceId\": \"TRACE-20260512-0007\",\n  \"motionLevel\": 1.1,\n  \"imageSource\": {\n    \"sourceType\": \"IMAGE_URL\",\n    \"url\": \"https://media.hospital.local/camera/CAM-ER-03/frame-1007.jpg\"\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Out-of-range motionLevel returns client error', function () { pm.expect([400, 422]).to.include(pm.response.code); });",
+                  "pm.test('Boundary test validates response body', function () {",
+                  "  const json = pm.response.json();",
+                  "  pm.expect(json).to.have.property('status');",
+                  "  pm.expect(json.status).to.be.within(400, 599);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /vision/detections/{detectionId} - bounding boxes stay normalized",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/vision/detections/{{detectionId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "vision",
+                "detections",
+                "{{detectionId}}"
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Detection result remains successful', function () { pm.response.to.have.status(200); });",
+                  "pm.test('All bounding boxes are inside [0,1]', function () {",
+                  "  const json = pm.response.json();",
+                  "  (json.objects || []).forEach(function (item) {",
+                  "    pm.expect(item.boundingBox.x).to.be.within(0, 1);",
+                  "    pm.expect(item.boundingBox.y).to.be.within(0, 1);",
+                  "    pm.expect(item.boundingBox.width).to.be.within(0, 1);",
+                  "    pm.expect(item.boundingBox.height).to.be.within(0, 1);",
+                  "  });",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /vision/detect - service unavailable is surfaced",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              },
+              {
+                "key": "Prefer",
+                "value": "code=503"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/vision/detect",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "vision",
+                "detect"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"requestId\": \"REQ-CAM-20260512-0008\",\n  \"cameraId\": \"CAM-ER-04\",\n  \"capturedAt\": \"2026-05-12T08:05:00Z\",\n  \"traceId\": \"TRACE-20260512-0008\",\n  \"imageSource\": {\n    \"sourceType\": \"IMAGE_URL\",\n    \"url\": \"https://media.hospital.local/camera/CAM-ER-04/frame-1008.jpg\"\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Service unavailable returns 503', function () { pm.response.to.have.status(503); });",
+                  "pm.test('Problem response includes service-unavailable title', function () {",
+                  "  const json = pm.response.json();",
+                  "  pm.expect(json.status).to.eql(503);",
+                  "  pm.expect(json).to.have.property('title');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "05_Consumer_side_Smoke",
+      "item": [
+        {
+          "name": "Camera consumer smoke - calls AI Vision provider mock",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{providerMockUrl}}/vision/detect",
+              "host": [
+                "{{providerMockUrl}}"
+              ],
+              "path": [
+                "vision",
+                "detect"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"requestId\": \"REQ-CAM-20260512-0090\",\n  \"cameraId\": \"CAM-ER-01\",\n  \"capturedAt\": \"2026-05-12T08:09:00Z\",\n  \"traceId\": \"TRACE-20260512-0090\",\n  \"zoneId\": \"ER-ENTRANCE\",\n  \"motionLevel\": 0.88,\n  \"imageSource\": {\n    \"sourceType\": \"IMAGE_URL\",\n    \"url\": \"https://media.hospital.local/camera/CAM-ER-01/frame-1090.jpg\"\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Camera can call provider mock successfully', function () { pm.expect(pm.response.code).to.eql(202); });",
+                  "pm.test('Camera can parse minimal downstream fields', function () {",
+                  "  const json = pm.response.json();",
+                  "  pm.expect(json).to.have.property('detectionId');",
+                  "  pm.expect(json).to.have.property('status');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Camera consumer smoke - handles provider 503 response",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              },
+              {
+                "key": "Prefer",
+                "value": "code=503"
+              }
+            ],
+            "url": {
+              "raw": "{{providerMockUrl}}/vision/detect",
+              "host": [
+                "{{providerMockUrl}}"
+              ],
+              "path": [
+                "vision",
+                "detect"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"requestId\": \"REQ-CAM-20260512-0091\",\n  \"cameraId\": \"CAM-ER-01\",\n  \"capturedAt\": \"2026-05-12T08:10:00Z\",\n  \"traceId\": \"TRACE-20260512-0091\",\n  \"imageSource\": {\n    \"sourceType\": \"IMAGE_URL\",\n    \"url\": \"https://media.hospital.local/camera/CAM-ER-01/frame-1091.jpg\"\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Consumer observes provider 503 error', function () { pm.expect(pm.response.code).to.eql(503); });",
+                  "pm.test('Consumer can read problem payload', function () {",
+                  "  const json = pm.response.json();",
+                  "  pm.expect(json.status).to.eql(503);",
+                  "  pm.expect(json).to.have.property('detail');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "06_Local_only_NonFunctional",
+      "item": [
+        {
+          "name": "GET /vision/models/info - local response time threshold",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/vision/models/info",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "vision",
+                "models",
+                "info"
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const env = pm.environment.get('env') || 'mock';",
+                  "if (env === 'local') {",
+                  "  pm.test('Local service responds under 1000ms', function () { pm.expect(pm.response.responseTime).to.be.below(1000); });",
+                  "} else {",
+                  "  pm.test('Skipped on mock: mock latency is not evidence of real service reliability', function () { pm.expect(true).to.eql(true); });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

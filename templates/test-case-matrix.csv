@@ -1,6 +1,19 @@
 ID,Folder,Endpoint,Method,Scenario,Input file/body,Expected status,Expected response check,Type,Pass/Fail,Evidence
-TC01,Functional,/health,GET,Service is alive,-,200,status=ok,functional,,
-TC02,Functional,/readings,POST,Create reading happy path,mock-data/sensor-reading-valid.json,201,"has reading_id, accepted=true",functional,,
-TC03,Negative,/readings,POST,Missing device_id,mock-data/sensor-reading-invalid-missing-device.json,400,Problem Details,negative,,
-TC04,Auth,/readings,POST,Missing token,mock-data/sensor-reading-valid.json,401,Problem Details,auth,,
-TC05,Boundary,/readings,POST,High temperature boundary,mock-data/sensor-reading-boundary.json,201/400,documented behavior,boundary,,
+TC01,Health,/health,GET,Service is alive,-,200,"status=ok, service=ai-vision",functional,Pass,mock newman-report.xml
+TC02,Functional,/vision/detect,POST,Accept IMAGE_URL request,mock-data/vision-detect-valid-image-url.json,202,"has detectionId, status=PROCESSING",functional,Pass,mock newman-report.xml
+TC03,Functional,/vision/detect,POST,Accept OBJECT_STORAGE_REF request,mock-data/vision-detect-valid-object-storage.json,202,"returns requestId and traceId",functional,Pass,mock newman-report.xml
+TC04,Functional,/vision/detections/{detectionId},GET,Fetch completed detection result,example detectionId from mock,200,"confidence in [0,1], objects is array",functional,Pass,mock newman-report.xml
+TC05,Functional,/vision/models/info,GET,Get active model info,-,200,"has modelVersion and supportedImageSourceTypes",functional,Pass,mock newman-report.xml
+TC06,Auth,/vision/models/info,GET,Valid token is accepted,-,200,success response,auth,Pass,mock newman-report.xml
+TC07,Auth,/vision/detect,POST,Missing token on real service,valid body without Authorization header,mock skip or local 401/403,"skip on mock, assert 401/403 on local",auth,Blocked,"no local service at http://localhost:8000"
+TC08,Auth,/vision/detections/{detectionId},GET,Invalid token on real service,Authorization=Bearer invalid-token,mock skip or local 401/403,"skip on mock, assert 401/403 on local",auth,Blocked,"no local service at http://localhost:8000"
+TC09,Negative,/vision/detect,POST,Missing imageSource,mock-data/vision-detect-invalid-missing-image-source.json,400/422,"Problem response with title and status",negative,Pass,mock newman-report.xml
+TC10,Negative,/vision/detect,POST,Invalid cameraId pattern,inline body cameraId=ER-01,400/422,"Problem response has detail",negative,Pass,mock newman-report.xml
+TC11,Negative,/vision/detections/{detectionId},GET,Unknown detection id,DET-20260512-9999,404,"Problem status=404",negative,Pass,mock newman-report.xml
+TC12,Boundary,/vision/detect,POST,motionLevel max boundary accepted,mock-data/vision-detect-boundary-motion-level-max.json,202,"request accepted with PROCESSING status",boundary,Pass,mock newman-report.xml
+TC13,Boundary,/vision/detect,POST,motionLevel above max rejected,inline body motionLevel=1.1,400/422,"Problem response status in 4xx",boundary,Pass,mock newman-report.xml
+TC14,Reliability,/vision/detections/{detectionId},GET,Bounding boxes remain normalized,example detectionId from mock,200,"all x,y,width,height within [0,1]",reliability,Pass,mock newman-report.xml
+TC15,Reliability,/vision/detect,POST,Provider unavailable surfaced,valid detect body with Prefer code=503,503,"Problem response status=503",reliability,Pass,mock newman-report.xml
+TC16,Consumer-side,/vision/detect,POST,Camera consumer calls AI Vision mock,inline camera request via providerMockUrl,202,"consumer reads detectionId and status",consumer-smoke,Pass,mock newman-report.xml
+TC17,Consumer-side,/vision/detect,POST,Camera consumer handles AI Vision 503,inline camera request via providerMockUrl with Prefer code=503,503,"consumer reads problem detail",consumer-smoke,Pass,mock newman-report.xml
+TC18,Local-only,/vision/models/info,GET,Response time under 1000ms on local,-,200,"responseTime < 1000ms when env=local",non-functional,Blocked,"no local service at http://localhost:8000"

@@ -1,0 +1,13 @@
+Local environment status: blocked.
+
+Reason:
+- `npm run test:local` cannot complete because no service is listening at `http://localhost:8000`.
+- Current Newman local run fails with `ECONNREFUSED 127.0.0.1:8000`.
+
+Impacted checks:
+- local functional verification
+- real auth verification for 401/403
+- local-only SLA verification under 1000ms
+
+Evidence:
+- `reports/newman-report-local.xml`
